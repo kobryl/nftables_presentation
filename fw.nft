@@ -1,0 +1,107 @@
+# clear all rules
+
+flush ruleset
+
+# common variables
+
+define DEV_PRIVATE = enp0s8
+define DEV_INTERNET = enp0s3
+define PRIVATE_ADDR = 192.168.128.0/24
+
+# NAT
+
+define DNAT_PORTS = { 80, 443 }
+add table nat
+
+## SNAT
+
+add chain nat postrouting { type nat hook postrouting priority srcnat ; }
+add rule nat postrouting ip saddr $PRIVATE_ADDR oifname $DEV_INTERNET masquerade
+
+## DNAT
+
+add chain nat prerouting { type nat hook prerouting priority dstnat ; }
+add rule nat prerouting iif enp0s3 tcp dport $DNAT_PORTS dnat to 192.168.0.2
+
+# Filters
+
+define ALLOWED_PORTS = { 53, 80, 443 }
+define BANNED_ADDRESSES = { 212.77.98.9 }
+
+add table inet filters
+
+## Allow connections with $ALLOWED_PORTS
+
+add chain inet filters ports
+add rule inet filters ports tcp dport $ALLOWED_PORTS accept
+add rule inet filters ports tcp sport $ALLOWED_PORTS accept
+add rule inet filters ports udp sport $ALLOWED_PORTS accept
+add rule inet filters ports udp dport $ALLOWED_PORTS accept
+
+## Ban all addresses from $BANNED_ADDRESSES
+
+add chain inet filters banned_addr
+add rule inet filters banned_addr ip daddr $BANNED_ADDRESSES counter reject
+# add rule inet filters banned_addr continue
+
+## By default drop all incoming and forwarded, allow all outgoing.
+add chain inet filters forward { type filter hook forward priority filter ; policy drop ; }
+add chain inet filters input { type filter hook input priority filter ; policy drop ; }
+add chain inet filters output { type filter hook output priority filter ; policy accept ; }
+
+## Allow loopback
+
+add rule inet filters input iifname lo accept
+add rule inet filters output oifname lo accept
+
+## Check if destination is banned
+
+add rule inet filters output jump banned_addr
+add rule inet filters forward jump banned_addr
+
+## Allow traffic originated from this machine and private network, drop invalid connections
+
+#add rule inet filters input ct state invalid drop
+add rule inet filters input ct state established,related accept
+#add rule inet filters forward ct state invalid drop
+add rule inet filters forward ct state established,related accept
+
+## Accept ping for every direction
+
+add rule inet filters input meta l4proto icmp accept
+add rule inet filters output meta l4proto icmp accept
+add rule inet filters forward meta l4proto icmp accept
+
+## Allow ports from $ALLOWED_PORTS
+
+add rule inet filters input jump ports
+add rule inet filters output jump ports
+add rule inet filters forward jump ports
+
+# Port knocking
+
+define PROTECTED_PORT = 22
+
+#add table inet knocking
+
+# add set inet knocking clients {
+#	type ipv4_addr
+#	flags timeout
+#}
+
+# add set inet knocking clinetsv6 {
+#	type ipv6_addr
+#	flags timeout
+#}
+
+# add set inet knocking candidates {
+#	type ipv4_addr . inet_service
+#	flags timeout
+#}
+
+# add set inet knocking candidatesv6 {
+#	type ipv6_addr . inet_service
+#	flags timeout
+#}
+
+# add chain knocking knock_chain { type filter hook input ; priority -10; policy continue }
