@@ -118,4 +118,4 @@ add rule inet filters knock_chain tcp dport $PROTECTED_PORTS counter ip saddr @c
 add rule inet filters knock_chain tcp dport $PROTECTED_PORTS ip6 saddr @clientsv6 accept
 add rule inet filters knock_chain tcp dport $PROTECTED_PORTS ct state established,related accept
 
-add rule inet filters knock_chain tcp dport $PROTECTED_PORTS counter reject with tcp reset
+add rule inet filters knock_chain tcp dport $PROTECTED_PORTS counter log prefix "Someone tried to reach ssh" reject with tcp reset
